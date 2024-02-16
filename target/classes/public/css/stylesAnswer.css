@@ -1,0 +1,14 @@
+.container {
+   display: flex; /* Actives flex mode */
+ }
+
+.container img {
+     max-width: 15%;
+     height: auto; /* Height is set automatically to keep proportions */
+     margin-right: 10px;
+
+}
+
+h1 {
+    font-size: 40px;
+}
