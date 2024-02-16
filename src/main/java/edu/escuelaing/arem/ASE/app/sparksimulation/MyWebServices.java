@@ -46,6 +46,7 @@ public class MyWebServices {
             usersService.save(new User(userString));
             return HttpServer.httpResponseCreated();
         });
+        as
 
         //HttpServer.setFromCommandLine(true);
 
