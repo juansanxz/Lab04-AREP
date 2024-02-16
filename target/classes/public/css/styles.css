@@ -1,0 +1,24 @@
+.container {
+    width: 50%; /* Container's width */
+    margin: 0 auto; /* Centers the container horizontally */
+    text-align: center; /* Centers the content of the container */
+}
+
+h1 {
+    font-size: 40px; /* Ajusta el tamaño de la fuente del título h1 */
+}
+
+form {
+    font-size: 22px; /* Sets the size of the form */
+    margin-top: 40px;
+
+}
+
+.container img:last-child {
+    margin-top: 20px; /* Sets the margin of the last image */
+}
+
+.container img {
+     max-width: 30%;
+     height: auto; /* Height is set automatically to keep proportions */
+ }
