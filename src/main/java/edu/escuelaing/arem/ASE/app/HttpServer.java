@@ -1,26 +1,37 @@
 package edu.escuelaing.arem.ASE.app;
 
+import edu.escuelaing.arem.ASE.app.springsimulation.annotations.Component;
+import edu.escuelaing.arem.ASE.app.springsimulation.annotations.GetMapping;
+import edu.escuelaing.arem.ASE.app.sparksimulation.HttpRequest;
+import edu.escuelaing.arem.ASE.app.sparksimulation.HttpResponse;
+import edu.escuelaing.arem.ASE.app.sparksimulation.WebService;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.net.*;
 import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class HttpServer {
 
+
     private static String location = null;
     private static HttpServer _instance = new HttpServer();
+    private static boolean locationSetted = false;
+    private static boolean fromCommandline = false;
     private static String route = "";
     private static Map<String, WebService> services = new HashMap<String, WebService>();
-    private static Map<String, Method> springServices = new HashMap<String, Method>();
-
-
-
+    private static Map<String, Method> springGetServices = new HashMap<String, Method>();
+    private static Map<String, Method> springPostServices = new HashMap<String, Method>();
+    private static final String folderPath = "target/classes/edu/escuelaing/arem/ASE/app/springsimulation/controllers";
 
     private HttpServer() {}
 
@@ -29,10 +40,22 @@ public class HttpServer {
     }
 
     public void runServer(String[] args) throws IOException, URISyntaxException, ClassNotFoundException, InvocationTargetException, IllegalAccessException {
-        Class<?> c = Class.forName(args[0]);
-        if (c.isAnnotationPresent(Component.class)) {
-            loadMethods(c);
+        if(fromCommandline) {
+            Class<?> c = Class.forName(args[0]);
+            if (c.isAnnotationPresent(Component.class)) {
+                loadMethods(c);
+            }
+        } else {
+            List<String> classNames = getClassNames(folderPath);
+            List<Class<?>> loadedClasses = loadClasses(classNames);
+            for (Class<?> loadClass : loadedClasses) {
+                if (loadClass.isAnnotationPresent(Component.class)) {
+                    loadMethods(loadClass);
+                }
+            }
+
         }
+
         ServerSocket serverSocket = null;
         try {
             serverSocket = new ServerSocket(35000);
@@ -88,7 +111,6 @@ public class HttpServer {
                     }
                 }
 
-
                 System.out.println("Received: " + inputLine);
                 if (!in.ready()) {
                     break;
@@ -99,40 +121,54 @@ public class HttpServer {
             outputLine = httpErrorNotFound();
             String path = fileUri.getPath();
 
-            if (path.startsWith(location)){
-                String webUri = path.replace(location, "");
-                if (services.containsKey(webUri)) {
-                    HttpRequest request = new HttpRequest(method, fileUri, requestBody);
-                    HttpResponse response = new HttpResponse();
-                    outputLine = services.get(webUri).handle(request, response);
-                    if(!outputLine.contains("HTTP/1.1")){
-                        if (response.getHeaders().get("Content-Type").equals("application/json")) {
-                            outputLine = buildJsonHeader() + outputLine;
-                        }
-                    }
-                } else if (webUri.startsWith("/jpeg")){
-                    // When client asks for an image
-                    OutputStream outputForImage = clientSocket.getOutputStream();
-                    httpRequestImage(webUri, outputForImage);
-                    outputLine = null;
-                } else if (springServices.containsKey(webUri)) {
-                    System.out.println("AQUIIIIIIIIIIIIIIIIIII");
-                    if (method.equals("POST")) {
-                        HttpRequest request = new HttpRequest(method, fileUri, requestBody);
-                        String query = request.getQuery();
-                        // extraer query!!!!
-                    }
-                    Method controllerMethod = springServices.get(webUri);
-                    outputLine = buildHTMLHeader() + controllerMethod.invoke(null).toString();
-                    System.out.println(outputLine);
-                } else {
-                    try{
-                        outputLine = httpRequestTextFiles(webUri);
-                    } catch(Exception e){
-                        e.printStackTrace();
+            if(locationSetted) {
+                path = path.replace(location, "");
+            }
+
+            if (services.containsKey(path)) {
+                HttpRequest request = new HttpRequest(method, fileUri, requestBody);
+                HttpResponse response = new HttpResponse();
+                outputLine = services.get(path).handle(request, response);
+                if(!outputLine.contains("HTTP/1.1")){
+                    if (response.getHeaders().get("Content-Type").equals("application/json")) {
+                        outputLine = buildJsonHeader() + outputLine;
                     }
                 }
+            } else if (path.startsWith("/jpeg")) {
+                // When client asks for an image
+                OutputStream outputForImage = clientSocket.getOutputStream();
+                httpRequestImage(path, outputForImage);
+                outputLine = null;
+            } else if (method.equals("GET") && springGetServices.containsKey(path)) {
+                System.out.println("AQUIIIIIIIIIIIIIIIIIII");
+                Method controllerMethod = springGetServices.get(path);
+                String contentTypeSpring = controllerMethod.getAnnotation(GetMapping.class).contentType();
+                String query = fileUri.getQuery();
+                if (controllerMethod.getParameters().length == 1) {
+                    outputLine = buildJsonHeader() + controllerMethod.invoke(null);
+                }
+                if (contentTypeSpring.equals("application/json")) {
+                    outputLine = buildJsonHeader() + controllerMethod.invoke(null);
+                } else {
+                    outputLine = buildHTMLHeader() + controllerMethod.invoke(null);
+                }
+
+                System.out.println(outputLine);
+
+            } else if (method.equals("POST") && springPostServices.containsKey(path)) {
+                Method controllerMethod = springPostServices.get(path);
+                controllerMethod.invoke(null, requestBody);
+                outputLine = httpResponseCreated();
+
+            } else {
+                try{
+                    outputLine = httpRequestTextFiles(path);
+                } catch(Exception e){
+                    e.printStackTrace();
+                }
+
             }
+
 
             out.println(outputLine);
             out.close();
@@ -146,7 +182,8 @@ public class HttpServer {
         for (Method method : c.getDeclaredMethods()) {
             if (method.isAnnotationPresent(GetMapping.class)) {
                 String springRoute = method.getAnnotation(GetMapping.class).value();
-                springServices.put(springRoute, method);
+                springGetServices.put(springRoute, method);
+
 
             }
         }
@@ -180,7 +217,13 @@ public class HttpServer {
      * @throws IOException
      */
     public static void httpRequestImage(String requestedFile, OutputStream outputStream) throws IOException {
-        Path file = Paths.get("target/classes" + location + requestedFile);
+        Path file = null;
+        if(locationSetted) {
+            file = Paths.get("target/classes" + location + requestedFile);
+        } else {
+            file = Paths.get("target/classes" + requestedFile);
+        }
+
         byte[] buffer = new byte[1024]; // Tamaño del buffer
         try (InputStream inputStream = Files.newInputStream(file)) {
             String header = "HTTP/1.1 200 OK\r\n" +
@@ -203,7 +246,12 @@ public class HttpServer {
      */
     public static String httpRequestTextFiles(String requestedFile) throws IOException {
         Charset charset = Charset.forName("UTF-8");
-        Path file = Paths.get("target/classes/" + location + requestedFile);
+        Path file = null;
+        if(locationSetted) {
+            file = Paths.get("target/classes" + location + requestedFile);
+        } else {
+            file = Paths.get("target/classes" + requestedFile);
+        }
         BufferedReader reader = Files.newBufferedReader(file, charset);
         String line = null;
         String outputLine = null;
@@ -268,11 +316,41 @@ public class HttpServer {
     }
 
     public static void location(String fileLocation) {
+        locationSetted = true;
         location = fileLocation;
     }
 
     public static void post(String r, WebService s) {
         services.put(r, s);
+    }
+
+    public static void setFromCommandLine(boolean setCommandLine) {
+        fromCommandline = setCommandLine;
+    }
+
+    private List<String> getClassNames(String folderPath) {
+        List<String> classNames = new ArrayList<>();
+        File folder = new File(folderPath);
+        File[] files = folder.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file.isFile() && file.getName().endsWith(".class")) {
+                    // Quitar la extensión ".class" y reemplazar "/" por "."
+                    String className = file.getName().substring(0, file.getName().length() - 6).replace(File.separatorChar, '.');
+                    classNames.add("edu.escuelaing.arem.ASE.app.springsimulation.controllers." + className);
+                }
+            }
+        }
+        return classNames;
+    }
+
+    private static List<Class<?>> loadClasses(List<String> classNames) throws IOException, ClassNotFoundException {
+        List<Class<?>> loadedClasses = new ArrayList<>();
+        ClassLoader classLoader = new URLClassLoader(new URL[]{new File("").toURI().toURL()});
+        for (String className : classNames) {
+            loadedClasses.add(Class.forName(className, true, classLoader));
+        }
+        return loadedClasses;
     }
 
 }

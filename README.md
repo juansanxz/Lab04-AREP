@@ -1,4 +1,4 @@
-# MICROFRAMEWORKS WEB
+# TALLER DE ARQUITECTURAS DE SERVIDORES DE APLICACIONES, META PROTOCOLOS DE OBJETOS, PATRÓN IOC, REFLEXIÓN
 A continuación, se explorará el microframework WEB denominado sparkweb (https://sparkjava.com/), el cual permite construir aplicaciones web de manera simple usando funciones lambda.
 Lo que se hará es construir un  servidor web para soportar una funcionalidad similar a la de Spark.  
 

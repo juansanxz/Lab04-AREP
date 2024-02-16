@@ -1,4 +1,4 @@
-package edu.escuelaing.arem.ASE.app;
+package edu.escuelaing.arem.ASE.app.sparksimulation;
 
 import java.net.URI;
 import java.util.HashMap;

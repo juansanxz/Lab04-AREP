@@ -1,4 +1,4 @@
-package edu.escuelaing.arem.ASE.app;
+package edu.escuelaing.arem.ASE.app.springsimulation.annotations;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

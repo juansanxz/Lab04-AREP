@@ -1,4 +1,7 @@
-package edu.escuelaing.arem.ASE.app;
+package edu.escuelaing.arem.ASE.app.springsimulation.controllers;
+
+import edu.escuelaing.arem.ASE.app.springsimulation.annotations.Component;
+import edu.escuelaing.arem.ASE.app.springsimulation.annotations.GetMapping;
 
 @Component
 public class HelloControler {

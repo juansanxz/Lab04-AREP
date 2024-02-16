@@ -1,5 +1,7 @@
-package edu.escuelaing.arem.ASE.app;
+package edu.escuelaing.arem.ASE.app.sparksimulation;
 
+import edu.escuelaing.arem.ASE.app.ExternalRestApiConnection;
+import edu.escuelaing.arem.ASE.app.HttpServer;
 import edu.escuelaing.arem.ASE.app.repository.User;
 import edu.escuelaing.arem.ASE.app.service.UsersService;
 import edu.escuelaing.arem.ASE.app.service.UsersServiceImpl;
@@ -12,7 +14,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public class MyWebServices {
     public static void main(String[] args) throws IOException, URISyntaxException {
-        HttpServer.location("/public");
+        //Para Spark
+        //HttpServer.location("/public");
 
         AtomicReference<String> movieData = new AtomicReference<>();
         UsersService usersService = new UsersServiceImpl();
@@ -43,6 +46,8 @@ public class MyWebServices {
             usersService.save(new User(userString));
             return HttpServer.httpResponseCreated();
         });
+
+        //HttpServer.setFromCommandLine(true);
 
 
         try {
