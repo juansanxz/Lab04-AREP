@@ -1,4 +1,4 @@
-package edu.escuelaing.arem.ASE.app.sparksimulation;
+package edu.escuelaing.arem.ASE.app;
 
 import edu.escuelaing.arem.ASE.app.ExternalRestApiConnection;
 import edu.escuelaing.arem.ASE.app.HttpServer;
@@ -46,9 +46,6 @@ public class MyWebServices {
             usersService.save(new User(userString));
             return HttpServer.httpResponseCreated();
         });
-        as
-
-        //HttpServer.setFromCommandLine(true);
 
 
         try {

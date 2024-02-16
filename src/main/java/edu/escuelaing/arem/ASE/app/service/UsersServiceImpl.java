@@ -19,4 +19,9 @@ public class UsersServiceImpl implements UsersService{
     public List<User> all() {
         return new ArrayList<>(users.values());
     }
+
+    @Override
+    public User findById(String id) {
+        return users.get(id);
+    }
 }

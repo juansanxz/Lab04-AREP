@@ -32,7 +32,7 @@ function loadPostMsg() {
     };
 
     // Abre una solicitud POST a la URL "/createUser" con la cadena de consulta como datos
-    xhttp.open("POST", "/users/createUsers", true);
+    xhttp.open("POST", "/users", true);
 
     // Establece el encabezado Content-Type para datos de formulario
     xhttp.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
@@ -60,6 +60,35 @@ function loadGetMsg(callback) {
         }
     };
 
-    xhr.open('GET', "/users/allUsers", true); // Abre una solicitud GET a la URL especificada
+    xhr.open('GET', "/users", true); // Abre una solicitud GET a la URL especificada
+    xhr.send(); // Envía la solicitud
+}
+
+function loadGetOneMsg() {
+    var nameToSearch = document.getElementById("nameToSearch").value;
+    var xhr = new XMLHttpRequest(); // Crea una nueva instancia de XMLHttpRequest
+
+    // Configura la función de devolución de llamada cuando la solicitud se completa
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) { // Cuando la solicitud está completa
+            if (xhr.status === 200) { // Si el estado de la respuesta es exitoso
+                // Parsea la respuesta JSON si es necesario
+                console.log(xhr.responseText);
+                var responseData = JSON.parse(xhr.responseText);
+                var userInfo = document.getElementById("userInfo");
+                userInfo.innerHTML = ""; // Limpia la lista anterior
+                var listItem = document.createElement("info");
+                listItem.textContent = "Name: " + responseData.name + ", Last Name: " + responseData.lastName + ", Age: " + responseData.age;
+                userInfo.appendChild(listItem);
+
+
+            } else {
+                // Si la respuesta no es exitosa, llama a la función de devolución de llamada con un error
+                callback(new Error('Error en la solicitud: ' + xhr.status));
+            }
+        }
+    };
+
+    xhr.open('GET', "/users/user?id=" + nameToSearch , true); // Abre una solicitud GET a la URL especificada
     xhr.send(); // Envía la solicitud
 }

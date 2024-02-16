@@ -1,7 +1,6 @@
 package edu.escuelaing.arem.ASE.app;
 
-import edu.escuelaing.arem.ASE.app.springsimulation.annotations.Component;
-import edu.escuelaing.arem.ASE.app.springsimulation.annotations.GetMapping;
+import edu.escuelaing.arem.ASE.app.springsimulation.annotations.*;
 import edu.escuelaing.arem.ASE.app.sparksimulation.HttpRequest;
 import edu.escuelaing.arem.ASE.app.sparksimulation.HttpResponse;
 import edu.escuelaing.arem.ASE.app.sparksimulation.WebService;
@@ -26,7 +25,6 @@ public class HttpServer {
     private static String location = null;
     private static HttpServer _instance = new HttpServer();
     private static boolean locationSetted = false;
-    private static boolean fromCommandline = false;
     private static String route = "";
     private static Map<String, WebService> services = new HashMap<String, WebService>();
     private static Map<String, Method> springGetServices = new HashMap<String, Method>();
@@ -40,7 +38,7 @@ public class HttpServer {
     }
 
     public void runServer(String[] args) throws IOException, URISyntaxException, ClassNotFoundException, InvocationTargetException, IllegalAccessException {
-        if(fromCommandline) {
+        if(args.length != 0) {
             Class<?> c = Class.forName(args[0]);
             if (c.isAnnotationPresent(Component.class)) {
                 loadMethods(c);
@@ -94,9 +92,11 @@ public class HttpServer {
                     uriStr = inputLine.split(" ")[1];
                     firstLine = false;
                 }
+
                 if (method.equals("POST")) {
                     // Lee el encabezado Content-Length para determinar la longitud del cuerpo de la solicitud
                     int contentLength = -1;
+                    System.out.println("Received: " + inputLine);
                     while ((inputLine = in.readLine()) != null && !inputLine.isEmpty()) {
 
                         if (inputLine.startsWith("Content-Length:")) {
@@ -134,31 +134,38 @@ public class HttpServer {
                         outputLine = buildJsonHeader() + outputLine;
                     }
                 }
-            } else if (path.startsWith("/jpeg")) {
+            } else if (path.contains("/jpeg") || path.contains("/png")) {
                 // When client asks for an image
                 OutputStream outputForImage = clientSocket.getOutputStream();
                 httpRequestImage(path, outputForImage);
                 outputLine = null;
             } else if (method.equals("GET") && springGetServices.containsKey(path)) {
-                System.out.println("AQUIIIIIIIIIIIIIIIIIII");
                 Method controllerMethod = springGetServices.get(path);
                 String contentTypeSpring = controllerMethod.getAnnotation(GetMapping.class).contentType();
                 String query = fileUri.getQuery();
-                if (controllerMethod.getParameters().length == 1) {
-                    outputLine = buildJsonHeader() + controllerMethod.invoke(null);
-                }
+                Parameter[] parameters = controllerMethod.getParameters();
                 if (contentTypeSpring.equals("application/json")) {
-                    outputLine = buildJsonHeader() + controllerMethod.invoke(null);
+                    outputLine = buildJsonHeader();
                 } else {
-                    outputLine = buildHTMLHeader() + controllerMethod.invoke(null);
+                    outputLine = buildHTMLHeader();
                 }
+                if (controllerMethod.getParameters().length == 1) {
+                    if (parameters[0].isAnnotationPresent(PathVariable.class)) {
+                        outputLine = outputLine + controllerMethod.invoke(null, query.split("=")[1]);
+                    }
 
+                } else {
+                    outputLine = outputLine + controllerMethod.invoke(null);
+                }
                 System.out.println(outputLine);
 
             } else if (method.equals("POST") && springPostServices.containsKey(path)) {
                 Method controllerMethod = springPostServices.get(path);
-                controllerMethod.invoke(null, requestBody);
-                outputLine = httpResponseCreated();
+                Parameter[] parameters = controllerMethod.getParameters();
+                if (parameters[0].isAnnotationPresent(RequestBody.class)) {
+                    controllerMethod.invoke(null, requestBody);
+                    outputLine = httpResponseCreated();
+                }
 
             } else {
                 try{
@@ -183,8 +190,10 @@ public class HttpServer {
             if (method.isAnnotationPresent(GetMapping.class)) {
                 String springRoute = method.getAnnotation(GetMapping.class).value();
                 springGetServices.put(springRoute, method);
-
-
+            }
+            if (method.isAnnotationPresent(PostMapping.class)) {
+                String springRoute = method.getAnnotation(PostMapping.class).value();
+                springPostServices.put(springRoute, method);
             }
         }
     }
@@ -225,11 +234,14 @@ public class HttpServer {
         }
 
         byte[] buffer = new byte[1024]; // Tamaño del buffer
+        String header = null;
         try (InputStream inputStream = Files.newInputStream(file)) {
-            String header = "HTTP/1.1 200 OK\r\n" +
-                    "Content-Type:image/jpeg\r\n" +
-                    "Content-Length: " + Files.size(file) + "\r\n" +
-                    "\r\n";
+            if (requestedFile.contains("/jpeg")) {
+                header = buildJpegHeader(file);
+            } else if (requestedFile.contains("/png")) {
+                header = buildPngHeader(file);
+            }
+
             outputStream.write(header.getBytes()); // Envía los encabezados
             int bytesRead;
             while ((bytesRead = inputStream.read(buffer)) != -1) {
@@ -308,6 +320,24 @@ public class HttpServer {
         return header;
     }
 
+    public static String buildJpegHeader (Path file) throws IOException {
+        String header = "HTTP/1.1 200 OK\r\n" +
+                "Content-Type:image/jpeg\r\n" +
+                "Content-Length: " + Files.size(file) + "\r\n" +
+                "\r\n";
+
+        return header;
+    }
+
+    public static String buildPngHeader (Path file) throws IOException {
+        String header = "HTTP/1.1 200 OK\r\n" +
+                "Content-Type:image/png\r\n" +
+                "Content-Length: " + Files.size(file) + "\r\n" +
+                "\r\n";
+
+        return header;
+    }
+
     public static String httpResponseCreated() {
         String response = "HTTP/1.1 201 Created\r\n" +
                 "Content-Type: text/html\r\n" +
@@ -324,9 +354,6 @@ public class HttpServer {
         services.put(r, s);
     }
 
-    public static void setFromCommandLine(boolean setCommandLine) {
-        fromCommandline = setCommandLine;
-    }
 
     private List<String> getClassNames(String folderPath) {
         List<String> classNames = new ArrayList<>();
